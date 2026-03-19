@@ -207,11 +207,12 @@ impl Default for SurfaceDataInner {
     }
 }
 
-/// An owned [`WlSurface`].
-///
-/// This destroys the surface on drop.
+/// An owned or adopted [`WlSurface`].
 #[derive(Debug)]
-pub struct Surface(wl_surface::WlSurface);
+pub struct Surface {
+    wl_surface: wl_surface::WlSurface,
+    owns_wl_surface: bool,
+}
 
 impl Surface {
     pub fn new<D>(
@@ -239,23 +240,42 @@ impl Surface {
         D: Dispatch<wl_surface::WlSurface, U> + 'static,
         U: Send + Sync + 'static,
     {
-        Ok(Surface(compositor.bound_global()?.create_surface(qh, data)))
+        Ok(Self {
+            wl_surface: compositor.bound_global()?.create_surface(qh, data),
+            owns_wl_surface: true,
+        })
+    }
+
+    pub fn adopt(surface: wl_surface::WlSurface) -> Self {
+        Self { wl_surface: surface, owns_wl_surface: false }
     }
 
     pub fn wl_surface(&self) -> &wl_surface::WlSurface {
-        &self.0
+        &self.wl_surface
+    }
+
+    pub fn owns_wl_surface(&self) -> bool {
+        self.owns_wl_surface
+    }
+}
+
+impl Clone for Surface {
+    fn clone(&self) -> Self {
+        Self { wl_surface: self.wl_surface.clone(), owns_wl_surface: false }
     }
 }
 
 impl From<wl_surface::WlSurface> for Surface {
     fn from(surface: wl_surface::WlSurface) -> Self {
-        Surface(surface)
+        Surface::adopt(surface)
     }
 }
 
 impl Drop for Surface {
     fn drop(&mut self) {
-        self.0.destroy();
+        if self.owns_wl_surface {
+            self.wl_surface.destroy();
+        }
     }
 }
 

@@ -39,6 +39,18 @@ pub struct XdgShell {
     xdg_decoration_manager: GlobalProxy<zxdg_decoration_manager_v1::ZxdgDecorationManagerV1>,
 }
 
+impl Clone for XdgShell {
+    fn clone(&self) -> Self {
+        Self {
+            xdg_wm_base: self.xdg_wm_base.clone(),
+            xdg_decoration_manager: match &self.xdg_decoration_manager {
+                GlobalProxy::NotPresent => GlobalProxy::NotPresent,
+                GlobalProxy::Bound(proxy) => GlobalProxy::Bound(proxy.clone()),
+            },
+        }
+    }
+}
+
 impl XdgShell {
     /// The maximum API version for XdgWmBase that this object will bind.
     // Note: if bumping this version number, check if the changes to the wayland XML cause an API
